@@ -189,10 +189,10 @@ class Rays:
                                            bins=[pix_x//bin_scale, pix_y//bin_scale], 
                                            range=[[-self.Lx/2, self.Lx/2],[-self.Ly/2,self.Ly/2]])
         self.H = self.H.T
-
         # Optional - clear ray attributes to save memory
         if(clear_mem):
             self.clear_rays()
+        return self.H
 
     def plot(self, ax, clim=None, cmap=None):
         ax.imshow(self.H, interpolation='nearest', origin='lower', clim=clim, cmap=cmap,
@@ -224,6 +224,19 @@ class Shadowgraphy(Rays):
 
         r7=distance(r6, self.L) #displace rays to detector
 
+        self.rf = r7
+
+class LIONZ_approx(Rays):
+    # one to one imaging system using LIONZ approximate f/# (set by first lens in system)
+    def solve(self, d1, d2):
+        r1=distance(self.r0, d1 - self.focal_plane) #displace rays to lens. Accounts for object with depth
+        r2=circular_aperture(r1, self.R)# cut off
+        r3=sym_lens(r2, self.L) #lens 1
+        r4=distance(r3, d2) #displace rays to first image
+        # repeat in reverse to get 1:1 mag
+        r5=distance(r4,d2)
+        r6=sym_lens(r5, self.L)
+        r7=distance(r6, d1)
         self.rf = r7
         
 class Schlieren_DF(Rays):

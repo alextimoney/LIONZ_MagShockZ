@@ -128,3 +128,6 @@ particle_tracking/test2.pkl
 .vs/turbulence_tracing/project-colors.json
 .vs/turbulence_tracing/v17/.suo
 .vs/VSWorkspaceState.json
+
+# Local ray tracing results
+**.npy
