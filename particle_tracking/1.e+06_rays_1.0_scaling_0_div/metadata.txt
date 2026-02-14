@@ -1,7 +1,0 @@
-num_photons: 1000000
-beam_size: 0.012
-divergence: 0
-flash_file: ~/shared/simulations/FLASH_MagShockZ3D-Trantham_2024-11/MagShockZ_hdf5_chk_0028
-scaling_factor: 1.0
-num_processors: 32
-timestamp: 1764019414.3802066

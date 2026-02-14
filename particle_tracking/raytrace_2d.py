@@ -39,7 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--num_photons', type=int, default=1e6, help="Number of photons to ray trace")
     parser.add_argument('-b', '--beam_size', type=float, default=12e-3, help="Beam size in millimeters")
     parser.add_argument('-d', '--divergence', type=float, default=0, help="Divergence in milliradians")
-    parser.add_argument('-f', '--flash_file', type=str, default='/gpfs/accounts/ckuranz_root/ckuranz1/timoney/MagShockZ_LIONZ_timoney/simuls/flat_hdf5_plt_cnt_0345')
+    parser.add_argument('-f', '--flash_file', type=str, default='/home/timoney/scratch/timoney/Geometries/FLAT/MagShockZ_hdf5_plt_cnt_0100')
     parser.add_argument('-s', '--scaling_factor', type=float, default=1.0, help="Artificial scaling factor for electron density")
     
     args = parser.parse_args()
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # downsize data for testing
     x_min, x_max = -1, 1  # in cm
-    y_min, y_max = -1, 1  # in cm
+    y_min, y_max = -0.075, 1.925  # in cm
 
     print(f"x range: {x_min} to {x_max} cm")
     print(f"y range: {y_min} to {y_max} cm")
@@ -89,10 +89,15 @@ if __name__ == "__main__":
     #     resolution=(nx_new, ny_new), 
     #     center=((x_min+x_max)/2, (y_min+y_max)/2, 0)
     # )
+    frb = slc.to_frb(
+        (x_max-x_min), 
+        (nx_new,ny_new), 
+        center=((x_min+x_max)/2, (y_min+y_max)/2, 0)
+    )
 
     # create a slice and use an FRB to downsample
     # slc = ds.slice(2, 0) # Slice perpendicular to Z (axis 2) at the center
-    frb = slc.to_frb((x_max - x_min), (nx_new, ny_new), center=((x_min+x_max)/2, (y_min+y_max)/2, 0))
+    # frb = slc.to_frb((x_max - x_min), (nx_new, ny_new), center=((x_min+x_max)/2, (y_min+y_max)/2, 0))
 
     dx = ds.domain_width / ds.domain_dimensions
 
@@ -163,7 +168,8 @@ if __name__ == "__main__":
     logger.info(f"Time taken: {end_time - start_time:.2f} seconds for {Np} rays")
     logger.info(f"Average time per ray: {(end_time - start_time) / Np:.6f} seconds")
 
-    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/raytrace_2d"
+    ID = metadata['flash_file'][-4:]  # Get plot number from filename for easy identification
+    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/raytrace_2d_{ID}"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, f'ray_output.npy'),'wb') as f:

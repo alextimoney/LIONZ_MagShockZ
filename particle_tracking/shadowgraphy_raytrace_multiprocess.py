@@ -39,7 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--num_photons', type=int, default=1e6, help="Number of photons to ray trace")
     parser.add_argument('-b', '--beam_size', type=float, default=12e-3, help="Beam size in millimeters")
     parser.add_argument('-d', '--divergence', type=float, default=0, help="Divergence in milliradians")
-    parser.add_argument('-f', '--flash_file', type=str, default='~/shared/simulations/FLASH_MagShockZ3D-Trantham_2024-11/MagShockZ_hdf5_chk_0028')
+    parser.add_argument('-f', '--flash_file', type=str, default='/home/timoney/scratch/timoney/MagShockZ/simuls/new_3d/MagShockZ_hdf5_plt_cnt_0058')
     parser.add_argument('-s', '--scaling_factor', type=float, default=1.0, help="Artificial scaling factor for electron density")
     
     args = parser.parse_args()
@@ -109,7 +109,8 @@ if __name__ == "__main__":
     logger.info(f"Time taken: {end_time - start_time:.2f} seconds for {Np} rays")
     logger.info(f"Average time per ray: {(end_time - start_time) / Np:.6f} seconds")
 
-    output_dir = f"{np.format_float_scientific(Np)}_rays_{scaling_factor}_scaling_{divergence}_div"
+    ID = metadata['flash_file'][-4:]  # Get plot number from filename for easy identification
+    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/raytrace_3d_{ID}"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, f'ray_output.npy'),'wb') as f:
