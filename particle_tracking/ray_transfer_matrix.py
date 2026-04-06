@@ -257,7 +257,7 @@ class LIONZ_Aperture_Before(Rays):
 
 # Insert circular focal plane aperture after the first lens
 class LIONZ_Aperture_After(Rays):
-    def solve(self, d1, d2, ap_d, ap_R = 5):
+    def solve(self, d1, d2, ap_d, ap_R):
         r1 = distance(self.r0, d1 - self.focal_plane) #displace rays to lens. Accounts for object with depth
         r2 = circular_aperture(r1, self.R) # cut off for physical size of lens
         r3 = sym_lens(r2, self.L) #lens 1
