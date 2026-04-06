@@ -147,7 +147,7 @@ if __name__ == "__main__":
     print('electron_density_3d shape:', electron_density_3d.shape)   # (Nx, Ny, Nz)
 
     # y adjustment. Tune this
-    y_coords -= 0.008
+    y_coords -= 0.004
 
     Np_per_proc = Np // num_processors
     logger.info(f"Number of photons per processor: {Np_per_proc}")
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     logger.info(f"Average time per ray: {(end_time - start_time) / Np:.6f} seconds")
 
     ID = metadata['flash_file'][-4:]  # Get plot number from filename for easy identification
-    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/raytrace_2d_{ID}"
+    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/2d_flat_shield/raytrace_2d_{ID}"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, f'ray_output.npy'),'wb') as f:

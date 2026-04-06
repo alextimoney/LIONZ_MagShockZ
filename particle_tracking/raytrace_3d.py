@@ -8,6 +8,7 @@ import multiprocessing as mp
 import yt
 import time
 import particle_tracker as pt
+import ray_transfer_matrix as rtm
 import os
 import logging
 
@@ -39,8 +40,9 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--num_photons', type=int, default=1e6, help="Number of photons to ray trace")
     parser.add_argument('-b', '--beam_size', type=float, default=12e-3, help="Beam size in millimeters")
     parser.add_argument('-d', '--divergence', type=float, default=0, help="Divergence in milliradians")
-    parser.add_argument('-f', '--flash_file', type=str, default='/home/timoney/scratch/timoney/Geometries/FLAT/MagShockZ_hdf5_plt_cnt_0100')
+    parser.add_argument('-f', '--flash_file', type=str, default='/scratch/ckuranz_root/ckuranz1/timoney/MagShockZ/simuls/3d_shield_curved/MagShockZ_hdf5_plt_cnt_0019')
     parser.add_argument('-s', '--scaling_factor', type=float, default=1.0, help="Artificial scaling factor for electron density")
+    parser.add_argument('-o', '--output_file', type=str, default=f"", help="additional string to add to output")
     
     args = parser.parse_args()
     logger.info(args)
@@ -51,6 +53,7 @@ if __name__ == "__main__":
         'divergence': args.divergence,
         'flash_file': args.flash_file,
         'scaling_factor': args.scaling_factor,
+        'output_file': args.output_file,
         'num_processors': mp.cpu_count(),
         'timestamp': time.time()
     }
@@ -59,6 +62,7 @@ if __name__ == "__main__":
     beam_size = args.beam_size
     divergence = args.divergence
     scaling_factor = args.scaling_factor
+    output_file = args.output_file
 
     ds = yt.load(args.flash_file)
 
@@ -82,11 +86,11 @@ if __name__ == "__main__":
     num_processors = mp.cpu_count() // 2
 
     # This assumes FLASH data is in cgs - converts to m
-    # switch x and y
+    # using regular ray tracing 
     x_coords = all_data[('flash','x')][:,0,0].value*1e-2
     y_coords = all_data[('flash','y')][0,:,0].value*1e-2
     z_coords = all_data[('flash','z')][0,0,:].value*1e-2
-    electron_density = all_data[("flash", "edens")].value * 1e6 * scaling_factor 
+    electron_density = all_data[("flash", "edens")].value * 1e6 * scaling_factor
 
     print('x_coords shape:', x_coords.shape)   # (Nx,)
     print('y_coords shape:', y_coords.shape)   # (Ny,)
@@ -94,7 +98,7 @@ if __name__ == "__main__":
     print('electron_density shape:', electron_density.shape)   # (Nx, Ny, Nz)
 
     # y adjustment. Tune this
-    y_coords -= 0.008
+    y_coords -= 0.004
 
     Np_per_proc = Np // num_processors
     logger.info(f"Number of photons per processor: {Np_per_proc}")
@@ -106,8 +110,19 @@ if __name__ == "__main__":
         output = p.map(solve_beam, process_args)
 
     output = np.concatenate(output, axis=1)
-
-    print(output.shape)
+    
+    print("Original output shape:", output.shape)
+    # Initialize a Shadowgraphy setup (or Schlieren_DF, etc.)
+    # L is the length scale, R is the aperture/lens radius in mm
+    diagnostic = rtm.Shadowgraphy(output, L=400, R=25, focal_plane=0)
+    # Propagate the rays through the lenses and apertures
+    diagnostic.solve()
+    # The final rays reaching the detector are stored in diagnostic.rf
+    output_to_save = diagnostic.rf
+    # Optional: Filter out the blocked (NaN) rays before saving
+    valid_rays_mask = ~np.isnan(output_to_save[0, :])
+    output_to_save = output_to_save[:, valid_rays_mask]
+    print("Shape after optical propagation:", output_to_save.shape)
 
     end_time = time.perf_counter()
     logger.info("Ray tracing completed.")
@@ -116,11 +131,12 @@ if __name__ == "__main__":
     logger.info(f"Average time per ray: {(end_time - start_time) / Np:.6f} seconds")
 
     ID = metadata['flash_file'][-4:]  # Get plot number from filename for easy identification
-    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/3d_noshield/raytrace_{ID}"
+    # output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/3d_noshield_scaledens/raytrace_{ID}_{output_file}"
+    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/3d_aperture/raytrace_{ID}_v1"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, f'ray_output.npy'),'wb') as f:
-        np.save(f, output)
+        np.save(f, output_to_save)
 
     with open(os.path.join(output_dir, 'metadata.txt'),'w') as f:
         for key, value in metadata.items():
