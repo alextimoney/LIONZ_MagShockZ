@@ -34,6 +34,7 @@ clim=[0,100]
 s.plot(axs, clim=clim, cmap=cm)
 
 '''
+
 def m_to_mm(r):
     rr = np.ndarray.copy(r)
     rr[0::2,:]*=1e3
@@ -238,6 +239,36 @@ class LIONZ_approx(Rays):
         r6=sym_lens(r5, self.L)
         r7=distance(r6, d1)
         self.rf = r7
+
+class LIONZ_Aperture_Before(Rays):
+    def solve(self, d1, d2, ap_d, ap_R):
+        # 1. Travel to the aperture location (d1 minus the offset)
+        distance_to_aperture = (d1 - self.focal_plane) - ap_d
+        r1 = distance(self.r0, distance_to_aperture) #displace rays to aperture. accounts for object with depth
+        r2 = circular_aperture(r1, ap_R) # aperture with given radius
+        r3 = distance(r2, ap_d) # remaining distance to lens
+        r4 = sym_lens(r3, self.L) # lens 1
+        r5 = distance(r4, d2) #remaining distance to image plane
+        # repeat in reverse to get 1:1 mag
+        r6 = distance(r5, d2)
+        r7 = sym_lens(r6, self.L)
+        r8 = distance(r7, d1)
+        self.rf = r8
+
+# Insert circular focal plane aperture after the first lens
+class LIONZ_Aperture_After(Rays):
+    def solve(self, d1, d2, ap_d, ap_R = 5):
+        r1 = distance(self.r0, d1 - self.focal_plane) #displace rays to lens. Accounts for object with depth
+        r2 = circular_aperture(r1, self.R) # cut off for physical size of lens
+        r3 = sym_lens(r2, self.L) #lens 1
+        r4 = distance(r3, ap_d) #distace to aperture from lens 1
+        r5 = circular_aperture(r4, R = ap_R) # aperture with radius ap_R
+        r6 = distance(r5, d2 - ap_d) #remaining distance to the image plane
+        # repeat in reverse to get 1:1 mag
+        r7 = distance(r6, d2)
+        r8 = sym_lens(r7, self.L)
+        r9 = distance(r8, d1)
+        self.rf = r9
         
 class Schlieren_DF(Rays):
     """
