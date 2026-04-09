@@ -10,6 +10,8 @@ import time
 import particle_tracker as pt
 import os
 import logging
+from scipy.ndimage import map_coordinates
+import dimensionalize as dim
 
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -136,10 +138,13 @@ if __name__ == "__main__":
     electron_density_2d = frb[("flash", "edens")].value * 1e6 * scaling_factor # downsampled edens in 1/m^3
     electron_density_2d = np.transpose(electron_density_2d)  # Transpose to match x,y orientation
 
+    # make 2d ED 3d by duplicating back the xy plane
     # electron_density_2d = all_data[('flash','edens')].value*1e6*scaling_factor
-    electron_density_2d = np.squeeze(electron_density_2d)
-    electron_density_3d = np.repeat(electron_density_2d[:, :, np.newaxis], Nz, axis=2)
-    electron_density_3d = electron_density_3d.astype(np.float32)
+    # electron_density_2d = np.squeeze(electron_density_2d)
+    # electron_density_3d = np.repeat(electron_density_2d[:, :, np.newaxis], Nz, axis=2)
+    # electron_density_3d = electron_density_3d.astype(np.float32)
+
+    electron_density_3d = dim.rotational_2d_to_3d(electron_density_2d, Nz, z_coords)
 
     print('x_coords shape:', x_coords.shape)   # (Nx,)
     print('y_coords shape:', y_coords.shape)   # (Ny,)
@@ -169,7 +174,7 @@ if __name__ == "__main__":
     logger.info(f"Average time per ray: {(end_time - start_time) / Np:.6f} seconds")
 
     ID = metadata['flash_file'][-4:]  # Get plot number from filename for easy identification
-    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/2d_flat_shield/raytrace_2d_{ID}"
+    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/2d_shield_rot/raytrace_{ID}"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, f'ray_output.npy'),'wb') as f:

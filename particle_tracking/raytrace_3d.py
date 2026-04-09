@@ -110,19 +110,7 @@ if __name__ == "__main__":
         output = p.map(solve_beam, process_args)
 
     output = np.concatenate(output, axis=1)
-    
-    print("Original output shape:", output.shape)
-    # Initialize a Shadowgraphy setup (or Schlieren_DF, etc.)
-    # L is the length scale, R is the aperture/lens radius in mm
-    diagnostic = rtm.Shadowgraphy(output, L=400, R=25, focal_plane=0)
-    # Propagate the rays through the lenses and apertures
-    diagnostic.solve()
-    # The final rays reaching the detector are stored in diagnostic.rf
-    output_to_save = diagnostic.rf
-    # Optional: Filter out the blocked (NaN) rays before saving
-    valid_rays_mask = ~np.isnan(output_to_save[0, :])
-    output_to_save = output_to_save[:, valid_rays_mask]
-    print("Shape after optical propagation:", output_to_save.shape)
+    print("Output shape:", output.shape)
 
     end_time = time.perf_counter()
     logger.info("Ray tracing completed.")
@@ -132,11 +120,11 @@ if __name__ == "__main__":
 
     ID = metadata['flash_file'][-4:]  # Get plot number from filename for easy identification
     # output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/3d_noshield_scaledens/raytrace_{ID}_{output_file}"
-    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/3d_aperture/raytrace_{ID}_v1"
+    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/3d_shield_dens/raytrace_{ID}_{output_file}"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, f'ray_output.npy'),'wb') as f:
-        np.save(f, output_to_save)
+        np.save(f, output)
 
     with open(os.path.join(output_dir, 'metadata.txt'),'w') as f:
         for key, value in metadata.items():
