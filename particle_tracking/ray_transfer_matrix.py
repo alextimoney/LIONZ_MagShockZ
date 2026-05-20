@@ -240,6 +240,43 @@ class LIONZ_approx(Rays):
         r7=distance(r6, d1)
         self.rf = r7
 
+class LIONZ_image_sweep(Rays): #d2 = 3650
+    """
+    Solves the same system as LIONZ_approx, but with the option to stop the ray tracing at an intermediate distance, 
+    for example to see the rays at the focal plane of the first lens.
+    """
+    def solve(self, d1, d2,intermed_dist):
+        running_distance = intermed_dist
+        if(intermed_dist < d1-self.focal_plane):
+            rx = distance(self.r0, intermed_dist - self.focal_plane)
+            self.rf = rx
+            return
+        running_distance = intermed_dist - (d1-self.focal_plane)
+        r1=distance(self.r0, d1 - self.focal_plane) #displace rays to lens. Accounts for object with depth
+        r2=circular_aperture(r1, self.R)# cut off
+        r3=sym_lens(r2, self.L) #lens 1
+        if(running_distance < d2):
+            rx = distance(r3, running_distance)
+            self.rf = rx
+            return
+        r4=distance(r3, d2) #displace rays to first image
+        running_distance = running_distance - d2
+        if(running_distance < d2):
+            rx = distance(r4, running_distance)
+            self.rf = rx
+            return
+        r5=distance(r4,d2)
+        running_distance = running_distance - d2
+        r6=sym_lens(r5, self.L)
+        if(running_distance <= d1):
+            rx = distance(r6, running_distance)
+            self.rf = rx
+            return
+        else:
+            print('something went wrong. dist = ', intermed_dist)
+        r7=distance(r6, d1)
+        self.rf = r7
+
 class LIONZ_Aperture_Before(Rays):
     def solve(self, d1, d2, ap_d, ap_R):
         # 1. Travel to the aperture location (d1 minus the offset)
@@ -269,6 +306,20 @@ class LIONZ_Aperture_After(Rays):
         r8 = sym_lens(r7, self.L)
         r9 = distance(r8, d1)
         self.rf = r9
+
+class LIONZ_knife_edge(Rays):
+    def solve(self, d1, d2):
+        # apply knife edge at z = 0
+        r_knife = knife_edge(self.r0, offset=0, axis='x', direction=-1)
+        r1=distance(r_knife, d1 - self.focal_plane) #displace rays to lens. Accounts for object with depth
+        r2=circular_aperture(r1, self.R)# cut off
+        r3=sym_lens(r2, self.L) #lens 1
+        r4=distance(r3, d2) #displace rays to first image
+        # repeat in reverse to get 1:1 mag
+        r5=distance(r4,d2)
+        r6=sym_lens(r5, self.L)
+        r7=distance(r6, d1)
+        self.rf = r7
         
 class Schlieren_DF(Rays):
     """

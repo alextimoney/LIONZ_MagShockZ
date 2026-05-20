@@ -330,6 +330,27 @@ class ElectronCube:
         self.rf = self.ray_at_exit()
         return self.rf
 
+    def imprint_mask(ode_sol, extent, probing_direction):
+        # 1. Identify midplane index based on probing direction
+        # If probing X, we look at the X-coordinates (index 0)
+        if(probing_direction == 'x'):
+            pos_idx, h_idx, v_idx = 0, 1, 2 # x-pos, y-coord, z-coord
+        
+        # 2. Find rays at the midplane (this assumes you have the time-series data)
+        # If you only have the final state, you must "back-project" to the midplane
+        mid_x = extent / 2
+        
+        # Simple example: A "Crosshair" mask
+        # We only keep rays that are near the center lines at the midplane
+        y_at_mid = ode_sol[1] # simplified logic
+        z_at_mid = ode_sol[2]
+        
+        mask = (np.abs(y_at_mid) < 100) | (np.abs(z_at_mid) < 100)
+        
+        # 3. Apply mask (zero out the amplitude/velocity of rays that miss)
+        ode_sol[:, ~mask] = 0 
+        return ode_sol
+
     def ray_at_exit(self):
         """Takes the output from the 6D solver and returns 4D rays for ray-transfer matrix techniques.
         Effectively finds how far the ray is from the end of the volume, returns it to the end of the volume.
