@@ -7,12 +7,10 @@ import numpy as np
 import multiprocessing as mp
 import yt
 import time
-import particle_tracker_ke as pt
+import particle_tracker as pt
+import ray_transfer_matrix as rtm
 import os
 import logging
-from scipy.ndimage import map_coordinates
-import dimensionalize as dim
-from scipy.ndimage import gaussian_filter
 
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -25,7 +23,7 @@ def solve_beam(args):
     np.random.seed(proc_id + int(time.time()) % 100000)
 
     # Create new ElectronCube for each process
-    cube = pt.ElectronCube(x_coords, y_coords, z_coords)
+    cube = pt.ElectronCube(x_coords, y_coords, z_coords, probing_direction = 'y')
     logger.info(f"Process {proc_id}: ElectronCube created with shape {electron_density_3d.shape}")
     cube.external_ne(electron_density_3d)
 
@@ -42,8 +40,9 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--num_photons', type=int, default=1e6, help="Number of photons to ray trace")
     parser.add_argument('-b', '--beam_size', type=float, default=12e-3, help="Beam size in millimeters")
     parser.add_argument('-d', '--divergence', type=float, default=0, help="Divergence in milliradians")
-    parser.add_argument('-f', '--flash_file', type=str, default='/home/timoney/scratch/timoney/Geometries/FLAT/MagShockZ_hdf5_plt_cnt_0100')
+    parser.add_argument('-f', '--flash_file', type=str, default='/scratch/ckuranz_root/ckuranz1/timoney/MagShockZ/simuls/3d_shield_curved/MagShockZ_hdf5_plt_cnt_0019')
     parser.add_argument('-s', '--scaling_factor', type=float, default=1.0, help="Artificial scaling factor for electron density")
+    parser.add_argument('-o', '--output_file', type=str, default=f"", help="additional string to add to output")
     
     args = parser.parse_args()
     logger.info(args)
@@ -54,6 +53,7 @@ if __name__ == "__main__":
         'divergence': args.divergence,
         'flash_file': args.flash_file,
         'scaling_factor': args.scaling_factor,
+        # 'output_file': args.output_file,
         'num_processors': mp.cpu_count(),
         'timestamp': time.time()
     }
@@ -62,6 +62,7 @@ if __name__ == "__main__":
     beam_size = args.beam_size
     divergence = args.divergence
     scaling_factor = args.scaling_factor
+    output_file = args.output_file
 
     ds = yt.load(args.flash_file)
 
@@ -72,68 +73,62 @@ if __name__ == "__main__":
         return electron_number_density
     ds.add_field(("flash", "edens"), function=make_electron_number_density, units="1/code_length**3",sampling_type="cell") # same here
 
-    
-
-    synth = False # set to true to run with synthetic density field instead of flash
-    if(synth == True):
-        #### MAKE SYNTHETIC DENSITY FIELD ####
-        # (x,y,z) = (384,496,384)
-        # define domain size
-        x_min, x_max = -0.8, 0.8  # in cm
-        y_min, y_max = -0.075, 2.0  # in cm
-        z_min, z_max = -0.8, 0.8  # in cm
-
-        print(f"x range: {x_min} to {x_max} cm")
-        print(f"y range: {y_min} to {y_max} cm")
-        print(f"z range: {z_min} to {z_max} cm")
-
-        # define dimensions
-        Nx = 384
-        Ny = 496
-        Nz = 384
-        density_3d = np.zeros((Nx, Ny, Nz))
-
-        # create band
-        # x_center = Nx // 2
-        # y_center = Ny // 2
-        # band_width_x = 200
-        # band_width_y = 50 
-
-        # x_start = x_center - (band_width_x // 2)
-        # x_end = x_center + (band_width_x // 2)
-        # y_start = y_center - (band_width_y // 2)
-        # y_end = y_center + (band_width_y // 2)
-        # z_start = -50
-        # z_end = 50
-
-        # density_3d[x_start:x_end, y_start:y_end, z_start:z_end] = 1
-        # smooth_density_3d = gaussian_filter(density_3d, sigma=30.0)
-
-        # This assumes FLASH data is in cgs - converts to m
-        x_coords = np.linspace(x_min, x_max, Nx) * 1e-2 # to meters
-        y_coords = np.linspace(y_min, y_max, Ny) * 1e-2 # to meters
-        z_coords = np.linspace(z_min, z_max, Nz) * 1e-2 # to meters
-
-        electron_density_3d = density_3d
-        # electron_density_3d = smooth_density_3d * 1e6 * scaling_factor  # Convert from cm^-3 to m^-3 and apply scaling factor
-    elif(synth == False):
-        level = 0
-        dims = ds.domain_dimensions * ds.refine_by**level
-        all_data = ds.covering_grid(
-            level,
-            left_edge=ds.domain_left_edge,
-            dims=dims,
-        )
-
-        # This assumes FLASH data is in cgs - converts to m
-        # using regular ray tracing 
-        x_coords = all_data[('flash','x')][:,0,0].value*1e-2
-        y_coords = all_data[('flash','y')][0,:,0].value*1e-2
-        z_coords = all_data[('flash','z')][0,0,:].value*1e-2
-        electron_density = all_data[("flash", "edens")].value * 1e6 * scaling_factor
+    level = 0
+    dims = ds.domain_dimensions * ds.refine_by**level
+    all_data = ds.covering_grid(
+        level,
+        left_edge=ds.domain_left_edge,
+        dims=dims,
+    )
 
     start_time = time.perf_counter()
+
     num_processors = mp.cpu_count() // 2
+
+    # This assumes FLASH data is in cgs - converts to m
+    # using regular ray tracing 
+    x_coords = all_data[('flash','x')][:,0,0].value*1e-2
+    y_coords = all_data[('flash','y')][0,:,0].value*1e-2
+    z_coords = all_data[('flash','z')][0,0,:].value*1e-2
+    electron_density = all_data[("flash", "edens")].value * 1e6 * scaling_factor
+    y_coords -= 0.008
+
+    XX, YY, ZZ = np.meshgrid(x_coords, y_coords, z_coords, indexing='ij')
+    mask_pattern = 'crosshair'  # options: 'crosshair', 'grid', 'ring'
+
+    # Find midplane index in z (probing direction)
+    mid_z = z_coords[len(z_coords)//2]
+    dz = z_coords[1] - z_coords[0]
+    print('z_coords[1]', z_coords[1])
+    print('z_coords[0]', z_coords[0])
+    print('dz', dz)
+    thickness = 3 * dz  # a few cells thick so it's not missed by ray steps
+    
+    # line_width = (x_coords.max() - x_coords.min()) / 40  # ~2.5% of domain width
+    line_width = 0.5e-3 #0.5 mm line width
+    print('line width:', line_width)
+
+    in_slab = np.abs(ZZ - mid_z) < thickness / 2
+    
+    if mask_pattern == 'crosshair':
+        in_pattern = (np.abs(XX) < line_width) | (np.abs(YY) < line_width)
+    elif mask_pattern == 'grid':
+        spacing = (x_coords.max() - x_coords.min()) / 4
+        in_pattern = (np.abs(XX % spacing) < line_width) | (np.abs(YY % spacing) < line_width)
+    elif mask_pattern == 'ring':
+        RR = np.sqrt(XX**2 + YY**2)
+        radius = (x_coords.max() - x_coords.min()) / 4
+        in_pattern = np.abs(RR - radius) < line_width
+
+    # Use a density just below nc - calc_dndr clips at ne_max=1
+    # omega for 1053nm: ~1.78e15 rad/s, nc ~ 1e27 m^-3
+    nc_approx = 1e29  
+    mask_density = 1 * nc_approx
+    print('mask density:', mask_density)
+    
+    electron_density = np.where(in_slab & in_pattern, mask_density, electron_density)
+    logger.info(f"Test mask applied: {mask_pattern} at z={mid_z:.4f} m, "
+                f"line_width={line_width*1e3:.2f} mm, thickness={thickness*1e3:.3f} mm")
 
     print('x_coords shape:', x_coords.shape)   # (Nx,)
     print('y_coords shape:', y_coords.shape)   # (Ny,)
@@ -141,7 +136,7 @@ if __name__ == "__main__":
     print('electron_density shape:', electron_density.shape)   # (Nx, Ny, Nz)
 
     # y adjustment. Tune this
-    y_coords -= 0.004
+    # y_coords -= 0.004
 
     Np_per_proc = Np // num_processors
     logger.info(f"Number of photons per processor: {Np_per_proc}")
@@ -153,8 +148,7 @@ if __name__ == "__main__":
         output = p.map(solve_beam, process_args)
 
     output = np.concatenate(output, axis=1)
-
-    print(output.shape)
+    print("Output shape:", output.shape)
 
     end_time = time.perf_counter()
     logger.info("Ray tracing completed.")
@@ -163,7 +157,8 @@ if __name__ == "__main__":
     logger.info(f"Average time per ray: {(end_time - start_time) / Np:.6f} seconds")
 
     ID = metadata['flash_file'][-4:]  # Get plot number from filename for easy identification
-    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/synthetic_trace/hole_raytrace_{ID}_0.0"
+    # output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/3d_noshield_scaledens/raytrace_{ID}_{output_file}"
+    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/synthetic_trace/ch_raytrace_{ID}_v4"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, f'ray_output.npy'),'wb') as f:

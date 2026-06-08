@@ -194,6 +194,24 @@ class Rays:
         if(clear_mem):
             self.clear_rays()
         return self.H
+    
+    def get_nans(self):
+        '''
+        Returns the number of rays which have been filtered out (i.e. rays which hit an optic or were outside the numerical aperture)
+        '''
+        print (np.sum(np.isnan(self.rf[0,:])), 'rays filtered out (NaNs)')
+
+    def get_cut_rays(self):
+        '''
+        Returns a list of ray arrays that have been cut out by the optics and their ray index.
+        '''
+        cut_rays_index = []
+        cut_rays_indices = np.where(np.isnan(self.rf[0, :]))[0]
+        # for i in range(len(self.rf)):
+        #     if(np.isnan(self.rf[0,i])):
+        #         print('Ray ', i, ' was cut out by an optic')
+        #         cut_rays_index.append(i)
+        return cut_rays_indices
 
     def plot(self, ax, clim=None, cmap=None):
         ax.imshow(self.H, interpolation='nearest', origin='lower', clim=clim, cmap=cmap,
@@ -319,6 +337,43 @@ class LIONZ_knife_edge(Rays):
         r5=distance(r4,d2)
         r6=sym_lens(r5, self.L)
         r7=distance(r6, d1)
+        self.rf = r7
+
+class Tracked_Shadowgraphy(Rays):
+    def solve(self, d1, d2):
+        self.history = []   # Store ray arrays here
+        self.z_planes = []  # Store z-coordinates here
+
+        current_z = 0
+        self.history.append(np.copy(self.r0))
+        self.z_planes.append(current_z)
+
+        # travel to first lens
+        r1 = distance(self.r0, d1 - self.focal_plane)
+        current_z += (d1 - self.focal_plane)
+
+        # apply circular aperture
+        r2=circular_aperture(r1, self.R)# cut off
+        r3=sym_lens(r2, self.L) #lens 1
+
+        self.history.append(np.copy(r3))
+        self.z_planes.append(current_z)
+
+        # travel to second lens
+        r4=distance(r3, d2)
+        current_z += (d2)
+
+        r5=distance(r4,d2)
+        r6=sym_lens(r5, self.L)
+
+        self.history.append(np.copy(r6))
+        self.z_planes.append(current_z)
+
+        r7=distance(r6, d1)
+        current_z += (d1)
+
+        self.history.append(np.copy(r7))
+        self.z_planes.append(current_z)
         self.rf = r7
         
 class Schlieren_DF(Rays):
