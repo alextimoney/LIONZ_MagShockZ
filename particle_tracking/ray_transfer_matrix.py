@@ -194,23 +194,13 @@ class Rays:
         if(clear_mem):
             self.clear_rays()
         return self.H
-    
-    def get_nans(self):
-        '''
-        Returns the number of rays which have been filtered out (i.e. rays which hit an optic or were outside the numerical aperture)
-        '''
-        print (np.sum(np.isnan(self.rf[0,:])), 'rays filtered out (NaNs)')
 
     def get_cut_rays(self):
         '''
         Returns a list of ray arrays that have been cut out by the optics and their ray index.
         '''
-        cut_rays_index = []
         cut_rays_indices = np.where(np.isnan(self.rf[0, :]))[0]
-        # for i in range(len(self.rf)):
-        #     if(np.isnan(self.rf[0,i])):
-        #         print('Ray ', i, ' was cut out by an optic')
-        #         cut_rays_index.append(i)
+        print (np.sum(np.isnan(self.rf[0,:])), 'rays filtered out (NaNs)')
         return cut_rays_indices
 
     def plot(self, ax, clim=None, cmap=None):
