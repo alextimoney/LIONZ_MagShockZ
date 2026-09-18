@@ -102,7 +102,7 @@ if __name__ == "__main__":
     print('z_coords[1]', z_coords[1])
     print('z_coords[0]', z_coords[0])
     print('dz', dz)
-    thickness = 3 * dz  # a few cells thick so it's not missed by ray steps
+    thickness = 10 * dz  # a few cells thick so it's not missed by ray steps
     
     # line_width = (x_coords.max() - x_coords.min()) / 40  # ~2.5% of domain width
     line_width = 0.5e-3 #0.5 mm line width
@@ -124,9 +124,10 @@ if __name__ == "__main__":
     # omega for 1053nm: ~1.78e15 rad/s, nc ~ 1e27 m^-3
     nc_approx = 1e29  
     mask_density = 1 * nc_approx
+    bg_density = 3e24  # uniform background dens
     print('mask density:', mask_density)
     
-    electron_density = np.where(in_slab & in_pattern, mask_density, electron_density)
+    electron_density = np.where(in_slab & in_pattern, mask_density, bg_density)
     logger.info(f"Test mask applied: {mask_pattern} at z={mid_z:.4f} m, "
                 f"line_width={line_width*1e3:.2f} mm, thickness={thickness*1e3:.3f} mm")
 
@@ -158,7 +159,7 @@ if __name__ == "__main__":
 
     ID = metadata['flash_file'][-4:]  # Get plot number from filename for easy identification
     # output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/3d_noshield_scaledens/raytrace_{ID}_{output_file}"
-    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/traces/synthetic_trace/ch_raytrace_{ID}_v4"
+    output_dir = f"/home/timoney/scratch/timoney/MagShockZ/LIONZ_MagShockZ/outputs/traces/synthetic_trace/ch_raytrace_{ID}_v1"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, f'ray_output.npy'),'wb') as f:

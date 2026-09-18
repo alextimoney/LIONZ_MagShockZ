@@ -131,3 +131,6 @@ particle_tracking/test2.pkl
 
 # Local ray tracing results
 **.npy
+
+# output folder 
+/outputs
